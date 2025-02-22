@@ -1,0 +1,58 @@
+name: Update Tiger Mosquito Data
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Runs daily at midnight UTC
+  workflow_dispatch:     # Allows manual triggering
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Ensures full history for committing
+
+      - name: Set Up R
+        uses: r-lib/actions/setup-r@v2
+
+      - name: Compute ISO Date Version
+        id: date
+        run: |
+          iso_date=$(date -I)
+          echo "iso_date=$iso_date" >> $GITHUB_OUTPUT
+
+      - name: Install pak and Package
+        run: |
+          Rscript -e 'install.packages("pak", repos = "https://cran.rstudio.com")'
+          Rscript -e 'pak::pak("e-kotov/alboFr")'
+
+      - name: Fetch Data and Save as GeoJSON
+        run: |
+          FILE="${{ steps.date.outputs.iso_date }}_tiger_mosquito_colonisation_in_france.geojson"
+          Rscript -e "library(alboFr); 
+                      x <- get_tiger_mosquito_colonisation_in_france(); 
+                      sf::st_write(x, '$FILE', quiet = TRUE)"
+
+      - name: Commit updated geojson file
+        uses: EndBug/add-and-commit@v9
+        with:
+          message: "Update tiger mosquito colonisation geojson for ${{ steps.date.outputs.iso_date }} [skip ci]"
+          add: "${{ steps.date.outputs.iso_date }}_tiger_mosquito_colonisation_in_france.geojson"
+
+      - name: Gzip GeoJSON File
+        run: |
+          FILE="${{ steps.date.outputs.iso_date }}_tiger_mosquito_colonisation_in_france.geojson"
+          gzip -f "$FILE"
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.date.outputs.iso_date }}
+          name: Release ${{ steps.date.outputs.iso_date }}
+          body: "Daily updated tiger mosquito colonisation data for ${{ steps.date.outputs.iso_date }}."
+          draft: false
+          prerelease: false
+          files: "${{ steps.date.outputs.iso_date }}_tiger_mosquito_colonisation_in_france.geojson.gz"
