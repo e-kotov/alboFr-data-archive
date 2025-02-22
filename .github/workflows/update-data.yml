@@ -3,7 +3,7 @@ name: Update Tiger Mosquito Data
 on:
   schedule:
     - cron: '0 0 * * *'  # Runs daily at midnight UTC
-  workflow_dispatch:     # Allows manual triggering
+  workflow_dispatch:
 
 jobs:
   update-data:
@@ -13,7 +13,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # Full history for committing
+          fetch-depth: 0  # Full history required for committing
 
       - name: Install System Dependencies
         run: |
@@ -32,16 +32,20 @@ jobs:
           iso_date=$(date -I)
           echo "iso_date=$iso_date" >> $GITHUB_OUTPUT
 
-      - name: Install pak and Package
+      - name: Install R Dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: "pak,sf,purrr,RcppSimdJson,ggplot2,quarto"
+
+      - name: Install Package via pak
         run: |
-          Rscript -e 'install.packages("pak", repos = "https://cran.rstudio.com")'
           Rscript -e 'pak::pak("e-kotov/alboFr")'
 
       - name: Fetch Data and Save as GeoJSON
         run: |
           FILE="${{ steps.date.outputs.iso_date }}_tiger_mosquito_colonisation_in_france.geojson"
-          Rscript -e "library(alboFr); 
-                      x <- get_tiger_mosquito_colonisation_in_france(); 
+          Rscript -e "library(alboFr); \
+                      x <- get_tiger_mosquito_colonisation_in_france(); \
                       sf::st_write(x, '$FILE', quiet = TRUE)"
 
       - name: Commit Updated GeoJSON File
@@ -49,6 +53,8 @@ jobs:
         with:
           message: "Update tiger mosquito colonisation geojson for ${{ steps.date.outputs.iso_date }} [skip ci]"
           add: "${{ steps.date.outputs.iso_date }}_tiger_mosquito_colonisation_in_france.geojson"
+          push: true
+          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Gzip GeoJSON File
         run: |
