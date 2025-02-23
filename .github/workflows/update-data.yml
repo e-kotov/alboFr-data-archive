@@ -13,6 +13,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
+          token: ${{ secrets.PAT_TOKEN }}
           fetch-depth: 0  # Full history required for committing
 
       - name: Install System Dependencies
@@ -32,12 +33,12 @@ jobs:
           iso_date=$(date -I)
           echo "iso_date=$iso_date" >> $GITHUB_OUTPUT    
 
-      - name: Install R Packages via pak
+      - name: Install R dependencies
         run: |
           Rscript -e "install.packages('pak', repos='https://packagemanager.posit.co/cran/__linux__/noble/latest')"
           Rscript -e "options(repos='https://packagemanager.posit.co/cran/__linux__/noble/latest'); pak::pak(c('pak', 'sf', 'purrr', 'RcppSimdJson', 'ggplot2', 'quarto'))"
         
-      - name: Install Package via pak
+      - name: Install alboFr
         run: |
           Rscript -e 'pak::pak("e-kotov/alboFr")'
 
@@ -54,7 +55,6 @@ jobs:
           message: "Update tiger mosquito colonisation geojson for ${{ steps.date.outputs.iso_date }} [skip ci]"
           add: "${{ steps.date.outputs.iso_date }}_tiger_mosquito_colonisation_in_france.geojson"
           push: true
-          github_token: ${{ secrets.PAT_TOKEN }}
 
       - name: Gzip GeoJSON File
         run: |
