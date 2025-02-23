@@ -35,16 +35,15 @@ jobs:
       - name: Install R Dependencies
         uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          with:
-            packages: "character(0)"
-            extra-packages: |
-              pak,
-              sf,
-              purrr,
-              RcppSimdJson,
-              ggplot2,
-              quarto
-            dependencies: "FALSE"
+          packages: "character(0)"
+          extra-packages: |
+            pak,
+            sf,
+            purrr,
+            RcppSimdJson,
+            ggplot2,
+            quarto
+          dependencies: "FALSE"
 
       - name: Install Package via pak
         run: |
