@@ -30,22 +30,13 @@ jobs:
         id: date
         run: |
           iso_date=$(date -I)
-          echo "iso_date=$iso_date" >> $GITHUB_OUTPUT
+          echo "iso_date=$iso_date" >> $GITHUB_OUTPUT    
 
-      - name: Install R Dependencies
-      - uses: r-lib/actions/setup-r-dependencies@v2
-        with:
-          packages: "NULL"
-          extra-packages: |
-            pak,
-            sf,
-            purrr,
-            RcppSimdJson,
-            ggplot2,
-            quarto
-          dependencies: "FALSE"
-    
-
+      - name: Install R Packages via pak
+        run: |
+          Rscript -e "install.packages('pak', repos='https://packagemanager.posit.co/cran/__linux__/noble/latest')"
+          Rscript -e "options(repos='https://packagemanager.posit.co/cran/__linux__/noble/latest'); pak::pak(c('pak', 'sf', 'purrr', 'RcppSimdJson', 'ggplot2', 'quarto'))"
+        
       - name: Install Package via pak
         run: |
           Rscript -e 'pak::pak("e-kotov/alboFr")'
