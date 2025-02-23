@@ -40,7 +40,7 @@ jobs:
       - name: Install R dependencies
         run: |
           Rscript -e "install.packages('pak', repos='https://packagemanager.posit.co/cran/__linux__/noble/latest')"
-          Rscript -e "options(repos='https://packagemanager.posit.co/cran/__linux__/noble/latest'); pak::pak(c('pak', 'sf', 'purrr', 'RcppSimdJson', 'ggplot2', 'quarto'))"
+          Rscript -e "options(repos='https://packagemanager.posit.co/cran/__linux__/noble/latest'); pak::pak(c('rlang',  'RcppSimdJson'))"
         
       - name: Install alboFr
         run: |
@@ -50,8 +50,8 @@ jobs:
       - name: Fetch Data and Save as GeoJSON
         run: |
           Rscript -e "library(alboFr); \
-                      x <- get_tiger_mosquito_colonisation_in_france(); \
-                      sf::st_write(x, 'tiger_mosquito_colonisation_in_france.geojson', quiet = TRUE)"
+                      x <- get_tiger_mosquito_colonisation_in_france(output = 'geojson'); \
+                      writeLines(x, 'tiger_mosquito_colonisation_in_france.geojson')"
 
       # 5) Commit only the "latest" file
       - name: Commit Updated GeoJSON File
