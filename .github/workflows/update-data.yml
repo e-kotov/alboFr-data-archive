@@ -8,14 +8,24 @@ on:
 jobs:
   update-data:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Needed for committing & creating releases
 
     steps:
+      # 1) Checkout repo using your PAT (or GITHUB_TOKEN if it has write permissions)
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
-          token: ${{ secrets.PAT_TOKEN }}
-          fetch-depth: 0  # Full history required for committing
+          fetch-depth: 0
 
+      # 2) Compute the ISO date for naming
+      - name: Compute ISO Date Version
+        id: date
+        run: |
+          iso_date=$(date -I)
+          echo "iso_date=$iso_date" >> $GITHUB_OUTPUT
+
+      # 3) Install Dependencies (Example R steps)
       - name: Install System Dependencies
         run: |
           sudo apt-get update
@@ -27,12 +37,6 @@ jobs:
           r-version: 'release'
           use-public-rspm: true
 
-      - name: Compute ISO Date Version
-        id: date
-        run: |
-          iso_date=$(date -I)
-          echo "iso_date=$iso_date" >> $GITHUB_OUTPUT    
-
       - name: Install R dependencies
         run: |
           Rscript -e "install.packages('pak', repos='https://packagemanager.posit.co/cran/__linux__/noble/latest')"
@@ -42,31 +46,39 @@ jobs:
         run: |
           Rscript -e 'pak::pak("e-kotov/alboFr")'
 
+      # 4) Fetch data, save to a single "latest" file (no date in filename)
       - name: Fetch Data and Save as GeoJSON
         run: |
-          FILE="${{ steps.date.outputs.iso_date }}_tiger_mosquito_colonisation_in_france.geojson"
           Rscript -e "library(alboFr); \
                       x <- get_tiger_mosquito_colonisation_in_france(); \
-                      sf::st_write(x, '$FILE', quiet = TRUE)"
+                      sf::st_write(x, 'tiger_mosquito_colonisation_in_france.geojson', quiet = TRUE)"
 
+      # 5) Commit only the "latest" file
       - name: Commit Updated GeoJSON File
         uses: EndBug/add-and-commit@v9
         with:
           message: "Update tiger mosquito colonisation geojson for ${{ steps.date.outputs.iso_date }} [skip ci]"
-          add: "${{ steps.date.outputs.iso_date }}_tiger_mosquito_colonisation_in_france.geojson"
+          add: "tiger_mosquito_colonisation_in_france.geojson"
           push: true
 
-      - name: Gzip GeoJSON File
+      # 6) Rename that file to date-stamped version (do NOT commit)
+      - name: Rename the GeoJSON File
         run: |
-          FILE="${{ steps.date.outputs.iso_date }}_tiger_mosquito_colonisation_in_france.geojson"
-          gzip -f "$FILE"
+          mv tiger_mosquito_colonisation_in_france.geojson \
+             ${{ steps.date.outputs.iso_date }}_tiger_mosquito_colonisation_in_france.geojson
 
+      # 7) Gzip the renamed file
+      - name: Gzip the Dated GeoJSON
+        run: |
+          gzip -f "${{ steps.date.outputs.iso_date }}_tiger_mosquito_colonisation_in_france.geojson"
+
+      # 8) Create a Release with the gzipped artifact
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ steps.date.outputs.iso_date }}
-          name: Release ${{ steps.date.outputs.iso_date }}
+          name: "Release ${{ steps.date.outputs.iso_date }}"
           body: "Daily updated tiger mosquito colonisation data for ${{ steps.date.outputs.iso_date }}."
           draft: false
           prerelease: false
-          files: "${{ steps.date.outputs.iso_date }}_tiger_mosquito_colonisation_in_france.geojson.gz"
+          artifacts: "${{ steps.date.outputs.iso_date }}_tiger_mosquito_colonisation_in_france.geojson.gz"
