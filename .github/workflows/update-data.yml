@@ -54,7 +54,7 @@ jobs:
           message: "Update tiger mosquito colonisation geojson for ${{ steps.date.outputs.iso_date }} [skip ci]"
           add: "${{ steps.date.outputs.iso_date }}_tiger_mosquito_colonisation_in_france.geojson"
           push: true
-          token: ${{ secrets.PAT_TOKEN }}
+          github_token: ${{ secrets.PAT_TOKEN }}
 
       - name: Gzip GeoJSON File
         run: |
