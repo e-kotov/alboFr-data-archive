@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14914293.svg)](https://doi.org/10.5281/zenodo.14914293)
+
 This repository is an automatic archive of data displayed at [https://signalement-moustique.anses.fr/signalement_albopictus/colonisees](https://signalement-moustique.anses.fr/signalement_albopictus/colonisees).
 
 The data is fetched once a day with https://github.com/e-kotov/alboFr R package and new geojson is commited to this repo on top of the old file. A new version of geojoson is also uploaded to the releases in this repo.
