@@ -78,7 +78,7 @@ jobs:
         with:
           tag: ${{ steps.date.outputs.iso_date }}
           name: "Release ${{ steps.date.outputs.iso_date }}"
-          body: "Daily updated tiger mosquito colonisation data for ${{ steps.date.outputs.iso_date }}."
+          body: "Daily updated tiger mosquito colonisation in France data for ${{ steps.date.outputs.iso_date }}."
           draft: false
           prerelease: false
           artifacts: "${{ steps.date.outputs.iso_date }}_tiger_mosquito_colonisation_in_france.geojson.gz"
