@@ -2,30 +2,30 @@ name: Update Tiger Mosquito Data
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Runs daily at midnight UTC
+    - cron: '0 0 * * *'    # daily at midnight UTC
   workflow_dispatch:
 
 jobs:
   update-data:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # Needed for committing & creating releases
+      contents: write     # needed for committing & releases
 
     steps:
-      # 1) Checkout repo using your PAT (or GITHUB_TOKEN if it has write permissions)
+      # 1) Checkout full history
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      # 2) Compute the ISO date for naming
+      # 2) Compute ISO date for naming
       - name: Compute ISO Date Version
         id: date
         run: |
           iso_date=$(date -I)
           echo "iso_date=$iso_date" >> $GITHUB_OUTPUT
 
-      # 3) Install Dependencies (Example R steps)
+      # 3) R environment setup
       - name: Install System Dependencies
         run: |
           sudo apt-get update
@@ -37,23 +37,23 @@ jobs:
           r-version: 'release'
           use-public-rspm: true
 
-      - name: Install R dependencies
+      - name: Install R packages
         run: |
           Rscript -e "install.packages('pak', repos='https://packagemanager.posit.co/cran/__linux__/noble/latest')"
-          Rscript -e "options(repos='https://packagemanager.posit.co/cran/__linux__/noble/latest'); pak::pak(c('rlang',  'RcppSimdJson'))"
-        
+          Rscript -e "options(repos='https://packagemanager.posit.co/cran/__linux__/noble/latest'); pak::pak(c('rlang','RcppSimdJson'))"
+
       - name: Install alboFr
         run: |
           Rscript -e 'pak::pak("e-kotov/alboFr")'
 
-      # 4) Fetch data, save to a single "latest" file (no date in filename)
+      # 4) Fetch the latest data
       - name: Fetch Data and Save as GeoJSON
         run: |
-          Rscript -e "library(alboFr); \
-                      x <- get_tiger_mosquito_colonisation_in_france(output = 'geojson'); \
+          Rscript -e "library(alboFr);
+                      x <- get_tiger_mosquito_colonisation_in_france(output='geojson');
                       writeLines(x, 'tiger_mosquito_colonisation_in_france.geojson')"
 
-      # 5) Commit only the "latest" file
+      # 5) Commit “latest” geojson back to repo
       - name: Commit Updated GeoJSON File
         uses: EndBug/add-and-commit@v9
         with:
@@ -61,18 +61,21 @@ jobs:
           add: "tiger_mosquito_colonisation_in_france.geojson"
           push: true
 
-      # 6) Rename that file to date-stamped version (do NOT commit)
-      - name: Rename the GeoJSON File
+      # 6) Stage only the data in a fixed folder
+      - name: Stage files for packaging
         run: |
-          mv tiger_mosquito_colonisation_in_france.geojson \
-             ${{ steps.date.outputs.iso_date }}_tiger_mosquito_colonisation_in_france.geojson
+          rm -rf tiger-mosquito-data
+          mkdir tiger-mosquito-data
+          cp tiger_mosquito_colonisation_in_france.geojson tiger-mosquito-data/
 
-      # 7) Gzip the renamed file
-      - name: Gzip the Dated GeoJSON
+      # 7) Zip it, excluding .github/
+      - name: Zip the data bundle
         run: |
-          gzip -f "${{ steps.date.outputs.iso_date }}_tiger_mosquito_colonisation_in_france.geojson"
+          zip -r "${{ steps.date.outputs.iso_date }}-tiger-mosquito-data.zip" \
+              tiger-mosquito-data \
+              -x "tiger-mosquito-data/.github/*"
 
-      # 8) Create a Release with the gzipped artifact
+      # 8) Create the GitHub Release with that zip
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
@@ -81,4 +84,5 @@ jobs:
           body: "Daily updated tiger mosquito colonisation in France data for ${{ steps.date.outputs.iso_date }}."
           draft: false
           prerelease: false
-          artifacts: "${{ steps.date.outputs.iso_date }}_tiger_mosquito_colonisation_in_france.geojson.gz"
+          artifacts: |
+            ${{ steps.date.outputs.iso_date }}-tiger-mosquito-data.zip
