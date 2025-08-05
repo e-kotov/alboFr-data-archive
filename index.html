@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MapLibre + Stamen Toner Vector + Tiger Mosquito Colonisation</title>
+  <link
+    href="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.css"
+    rel="stylesheet"
+  />
+  <style>
+    body { margin: 0; padding: 0; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    .map-overlay {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 10px;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      border-radius: 4px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+      z-index: 1;
+    }
+    .map-overlay h4 { margin: 0 0 5px; font-size: 16px; }
+    .map-overlay label { display: block; margin: 3px 0; }
+    .legend-key {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-right: 5px;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="map-overlay" id="menu">
+    <h4>Layers</h4>
+    <label><input type="checkbox" id="toggle-2025-08-04" checked />
+      <span class="legend-key" style="background: #cb3910"></span>2025-08-04
+    </label>
+    <label><input type="checkbox" id="toggle-2025-07-07" checked />
+      <span class="legend-key" style="background: #fbea8e"></span>2025-07-07
+    </label>
+  </div>
+
+  <script src="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.js"></script>
+  <script>
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: 'https://tiles-eu.stadiamaps.com/styles/stamen_toner.json',
+      center: [2.2137, 46.2276],
+      zoom: 5
+    });
+
+    map.on('load', () => {
+      // Add GeoJSON sources
+      map.addSource('colonisation_2025_08_04', {
+        type: 'geojson',
+        data: 'https://raw.githubusercontent.com/e-kotov/alboFr-data-archive/e2d70e0b4ccdff24569e61454b2c2b711636e5fe/tiger_mosquito_colonisation_in_france.geojson'
+      });
+      map.addSource('colonisation_2025_07_07', {
+        type: 'geojson',
+        data: 'https://raw.githubusercontent.com/e-kotov/alboFr-data-archive/72052477438ed9f3a06b6aaede29ba489886a1da/tiger_mosquito_colonisation_in_france.geojson'
+      });
+
+      // 2025-08-04 vector layers
+      map.addLayer({
+        id: 'colonisation_2025_08_04-fill',
+        type: 'fill',
+        source: 'colonisation_2025_08_04',
+        paint: {
+          'fill-color': '#cb3910',
+          'fill-opacity': 0.4
+        }
+      });
+      map.addLayer({
+        id: 'colonisation_2025_08_04-line',
+        type: 'line',
+        source: 'colonisation_2025_08_04',
+        paint: {
+          'line-color': '#cb3910',
+          'line-width': 1
+        }
+      });
+
+      // 2025-07-07 vector layers (on top)
+      map.addLayer({
+        id: 'colonisation_2025_07_07-fill',
+        type: 'fill',
+        source: 'colonisation_2025_07_07',
+        paint: {
+          'fill-color': '#fbea8e',
+          'fill-opacity': 0.4
+        }
+      });
+      map.addLayer({
+        id: 'colonisation_2025_07_07-line',
+        type: 'line',
+        source: 'colonisation_2025_07_07',
+        paint: {
+          'line-color': '#fbea8e',
+          'line-width': 1
+        }
+      });
+
+      // Layer toggle handlers
+      document.getElementById('toggle-2025-08-04').addEventListener('change', (e) => {
+        const vis = e.target.checked ? 'visible' : 'none';
+        map.setLayoutProperty('colonisation_2025_08_04-fill', 'visibility', vis);
+        map.setLayoutProperty('colonisation_2025_08_04-line', 'visibility', vis);
+      });
+      document.getElementById('toggle-2025-07-07').addEventListener('change', (e) => {
+        const vis = e.target.checked ? 'visible' : 'none';
+        map.setLayoutProperty('colonisation_2025_07_07-fill', 'visibility', vis);
+        map.setLayoutProperty('colonisation_2025_07_07-line', 'visibility', vis);
+      });
+    });
+  </script>
+</body>
+</html>
