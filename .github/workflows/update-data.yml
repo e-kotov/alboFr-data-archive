@@ -2,7 +2,8 @@ name: Update Tiger Mosquito Data
 
 on:
   schedule:
-    - cron: '0 3 * * 6'    # weekly at 3am UTC on Saturday
+    # Runs weekly on Saturday at 3 AM UTC
+    - cron: '0 3 * * 6'
   workflow_dispatch:
 
 jobs:
