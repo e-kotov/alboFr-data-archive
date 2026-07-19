@@ -4,6 +4,15 @@ on:
   schedule:
     - cron: '0 3 * * 6'
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run without committing, creating a release, or triggering Zenodo"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 jobs:
   update-data:
@@ -119,7 +128,7 @@ jobs:
           ISO_DATE: ${{ steps.date.outputs.iso_date }}
 
       - name: Commit Updated Data Files
-        if: steps.compare.outputs.changed == 'true'
+        if: steps.compare.outputs.changed == 'true' && inputs.dry_run != 'true'
         uses: EndBug/add-and-commit@v9
         with:
           message: "Update tiger mosquito colonisation data for ${{ steps.date.outputs.iso_date }} (${{ steps.compare.outputs.data_hash }}) [skip ci]"
@@ -127,21 +136,30 @@ jobs:
           push: true
 
       - name: Stage files for packaging
-        if: steps.compare.outputs.changed == 'true'
+        if: steps.compare.outputs.changed == 'true' || inputs.dry_run == 'true'
         run: |
           rm -rf tiger-mosquito-data
           mkdir tiger-mosquito-data
           cp tiger_mosquito_colonisation_in_france.geojson metadata.json SNAPSHOT.md README.md .zenodo.json CITATION.cff LICENSE.md tiger-mosquito-data/
 
       - name: Zip the data bundle
-        if: steps.compare.outputs.changed == 'true'
+        if: steps.compare.outputs.changed == 'true' || inputs.dry_run == 'true'
         run: |
           zip -r "${{ steps.compare.outputs.release_tag }}-tiger-mosquito-data.zip" \
               tiger-mosquito-data \
               -x "tiger-mosquito-data/.github/*"
 
+      - name: Upload dry-run artifact
+        if: inputs.dry_run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.compare.outputs.release_tag }}-dry-run-tiger-mosquito-data
+          path: |
+            tiger-mosquito-data
+            ${{ steps.compare.outputs.release_tag }}-tiger-mosquito-data.zip
+
       - name: Create GitHub Release
-        if: steps.compare.outputs.changed == 'true'
+        if: steps.compare.outputs.changed == 'true' && inputs.dry_run != 'true'
         uses: ncipollo/release-action@v1
         with:
           allowUpdates: true
