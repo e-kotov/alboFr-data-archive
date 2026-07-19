@@ -1,0 +1,33 @@
+{
+  "title": "Archive of tiger mosquito colonisation data in France",
+  "upload_type": "dataset",
+  "description": "Automatic archive of GeoJSON snapshots of tiger mosquito (Aedes albopictus) colonisation data displayed by the ANSES online map for France. Each release contains a dated snapshot; per-snapshot metadata is stored in metadata.json inside the release archive.",
+  "creators": [
+    {
+      "name": "Kotov, Egor",
+      "orcid": "0000-0001-6690-5345"
+    }
+  ],
+  "keywords": [
+    "Aedes albopictus",
+    "tiger mosquito",
+    "France",
+    "GeoJSON",
+    "data archive"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/e-kotov/alboFr-data-archive",
+      "relation": "isSupplementTo",
+      "resource_type": "software"
+    },
+    {
+      "identifier": "https://github.com/e-kotov/alboFr",
+      "relation": "isDerivedFrom",
+      "resource_type": "software"
+    }
+  ],
+  "access_right": "open",
+  "license": "cc-by-4.0",
+  "notes": "The archive metadata and packaging are provided under CC BY 4.0. The original upstream ANSES data does not have a clearly defined license; users should consult the source legal notice before reuse."
+}

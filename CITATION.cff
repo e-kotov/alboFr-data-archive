@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this data archive, please cite it as below."
+title: "Archive of tiger mosquito colonisation data in France"
+type: dataset
+authors:
+  - family-names: Kotov
+    given-names: Egor
+    orcid: "https://orcid.org/0000-0001-6690-5345"
+abstract: "Automatic archive of GeoJSON snapshots of tiger mosquito (Aedes albopictus) colonisation data displayed by the ANSES online map for France."
+keywords:
+  - Aedes albopictus
+  - tiger mosquito
+  - France
+  - GeoJSON
+  - data archive
+repository-code: "https://github.com/e-kotov/alboFr-data-archive"
+url: "https://github.com/e-kotov/alboFr-data-archive"
+doi: "10.5281/zenodo.14914293"
+license: "CC-BY-4.0"

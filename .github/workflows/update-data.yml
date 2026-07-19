@@ -2,7 +2,6 @@ name: Update Tiger Mosquito Data
 
 on:
   schedule:
-    # Runs weekly on Saturday at 3 AM UTC
     - cron: '0 3 * * 6'
   workflow_dispatch:
 
@@ -10,23 +9,20 @@ jobs:
   update-data:
     runs-on: ubuntu-latest
     permissions:
-      contents: write     # needed for committing & releases
+      contents: write
 
     steps:
-      # 1) Checkout full history
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # 2) Compute ISO date for naming
       - name: Compute ISO Date Version
         id: date
         run: |
           iso_date=$(date -I)
           echo "iso_date=$iso_date" >> $GITHUB_OUTPUT
 
-      # 3) R environment setup
       - name: Install System Dependencies
         run: |
           sudo apt-get update
@@ -41,49 +37,119 @@ jobs:
       - name: Install R packages
         run: |
           Rscript -e "install.packages('pak', repos='https://packagemanager.posit.co/cran/__linux__/noble/latest')"
-          Rscript -e "options(repos='https://packagemanager.posit.co/cran/__linux__/noble/latest'); pak::pak(c('rlang','RcppSimdJson'))"
+          Rscript -e "options(repos='https://packagemanager.posit.co/cran/__linux__/noble/latest'); pak::pak(c('rlang','RcppSimdJson','jsonlite','digest'))"
 
       - name: Install alboFr
         run: |
           Rscript -e 'pak::pak("e-kotov/alboFr")'
 
-      # 4) Fetch the latest data
       - name: Fetch Data and Save as GeoJSON
         run: |
           Rscript -e "library(alboFr);
                       x <- get_tiger_mosquito_colonisation_in_france(output='geojson');
                       writeLines(x, 'tiger_mosquito_colonisation_in_france.geojson')"
 
-      # 5) Commit “latest” geojson back to repo
-      - name: Commit Updated GeoJSON File
+      - name: Compare data and write metadata
+        id: compare
+        run: |
+          Rscript - <<'EOF'
+          library(jsonlite)
+          library(alboFr)
+
+          data_path <- "tiger_mosquito_colonisation_in_france.geojson"
+          previous_path <- tempfile(fileext = ".geojson")
+          git_status <- system2("git", c("show", paste0("HEAD:", data_path)), stdout = previous_path, stderr = FALSE)
+          if (!identical(git_status, 0L)) {
+            file.create(previous_path)
+          }
+
+          current_hash <- alboFr::get_tiger_mosquito_dataset_hash(data_path)
+          previous_hash <- if (file.info(previous_path)$size > 0) {
+            alboFr::get_tiger_mosquito_dataset_hash(previous_path)
+          } else {
+            NA_character_
+          }
+          changed <- !identical(current_hash, previous_hash)
+          release_tag <- paste0(Sys.getenv("ISO_DATE"), "-", substr(current_hash, 1, 8))
+          metadata <- alboFr::get_tiger_mosquito_colonisation_metadata()
+          metadata$data_canonical_sha256 <- current_hash
+          metadata$previous_data_canonical_sha256 <- previous_hash
+          metadata$features <- length(jsonlite::fromJSON(data_path, simplifyVector = FALSE)$features)
+          metadata$alboFr_version <- as.character(utils::packageVersion("alboFr"))
+          metadata$alboFr_remote_sha <- utils::packageDescription("alboFr")$RemoteSha
+          metadata$workflow_run_id <- Sys.getenv("GITHUB_RUN_ID")
+          metadata$release_tag <- release_tag
+
+          writeLines(toJSON(metadata, auto_unbox = TRUE, pretty = TRUE, null = "null"), "metadata.json")
+          snapshot <- c(
+            "# Snapshot metadata",
+            "",
+            sprintf("- Source URL: %s", metadata$source_url),
+            sprintf("- Fetched at: %s", metadata$fetched_at),
+            sprintf("- Official source update date: %s", metadata$source_official_update_date),
+            sprintf("- Canonical data hash: %s", metadata$data_canonical_sha256),
+            sprintf("- Previous canonical data hash: %s", metadata$previous_data_canonical_sha256),
+            sprintf("- Features: %s", metadata$features),
+            sprintf("- alboFr version: %s", metadata$alboFr_version),
+            sprintf("- alboFr GitHub SHA: %s", metadata$alboFr_remote_sha),
+            sprintf("- Workflow run ID: %s", metadata$workflow_run_id),
+            sprintf("- Release tag: %s", metadata$release_tag),
+            "",
+            "`source_official_update_date` is parsed from the ANSES page text and may be unavailable if the source page changes."
+          )
+          writeLines(snapshot, "SNAPSHOT.md")
+          release_body <- paste(
+            "Updated tiger mosquito colonisation in France data.",
+            "",
+            sprintf("- Fetched at: %s", metadata$fetched_at),
+            sprintf("- Official source update date: %s", metadata$source_official_update_date),
+            sprintf("- Canonical data hash: %s", metadata$data_canonical_sha256),
+            sprintf("- Features: %s", metadata$features),
+            sep = "\n"
+          )
+
+          cat(sprintf("changed=%s\n", tolower(changed)), file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
+          cat(sprintf("data_hash=%s\n", current_hash), file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
+          cat(sprintf("release_tag=%s\n", release_tag), file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
+          cat("release_body<<EOF\n", file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
+          cat(release_body, "\n", file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
+          cat("EOF\n", file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
+          EOF
+        env:
+          ISO_DATE: ${{ steps.date.outputs.iso_date }}
+
+      - name: Commit Updated Data Files
+        if: steps.compare.outputs.changed == 'true'
         uses: EndBug/add-and-commit@v9
         with:
-          message: "Update tiger mosquito colonisation geojson for ${{ steps.date.outputs.iso_date }} [skip ci]"
-          add: "tiger_mosquito_colonisation_in_france.geojson"
+          message: "Update tiger mosquito colonisation data for ${{ steps.date.outputs.iso_date }} (${{ steps.compare.outputs.data_hash }}) [skip ci]"
+          add: "tiger_mosquito_colonisation_in_france.geojson metadata.json SNAPSHOT.md"
           push: true
 
-      # 6) Stage only the data in a fixed folder
       - name: Stage files for packaging
+        if: steps.compare.outputs.changed == 'true'
         run: |
           rm -rf tiger-mosquito-data
           mkdir tiger-mosquito-data
-          cp tiger_mosquito_colonisation_in_france.geojson tiger-mosquito-data/
+          cp tiger_mosquito_colonisation_in_france.geojson metadata.json SNAPSHOT.md README.md .zenodo.json CITATION.cff LICENSE.md tiger-mosquito-data/
 
-      # 7) Zip it, excluding .github/
       - name: Zip the data bundle
+        if: steps.compare.outputs.changed == 'true'
         run: |
-          zip -r "${{ steps.date.outputs.iso_date }}-tiger-mosquito-data.zip" \
+          zip -r "${{ steps.compare.outputs.release_tag }}-tiger-mosquito-data.zip" \
               tiger-mosquito-data \
               -x "tiger-mosquito-data/.github/*"
 
-      # 8) Create the GitHub Release with that zip
       - name: Create GitHub Release
+        if: steps.compare.outputs.changed == 'true'
         uses: ncipollo/release-action@v1
         with:
-          tag: ${{ steps.date.outputs.iso_date }}
-          name: "Release ${{ steps.date.outputs.iso_date }}"
-          body: "Weekly updated tiger mosquito colonisation in France data for ${{ steps.date.outputs.iso_date }}."
+          allowUpdates: true
+          replacesArtifacts: true
+          tag: ${{ steps.compare.outputs.release_tag }}
+          name: "Release ${{ steps.compare.outputs.release_tag }}"
+          body: ${{ steps.compare.outputs.release_body }}
           draft: false
           prerelease: false
           artifacts: |
-            ${{ steps.date.outputs.iso_date }}-tiger-mosquito-data.zip
+            ${{ steps.compare.outputs.release_tag }}-tiger-mosquito-data.zip
