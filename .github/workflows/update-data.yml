@@ -17,6 +17,8 @@ on:
 jobs:
   update-data:
     runs-on: ubuntu-latest
+    env:
+      LC_COLLATE: C
     permissions:
       contents: write
 
@@ -84,12 +86,24 @@ jobs:
           metadata$data_canonical_sha256 <- current_hash
           metadata$previous_data_canonical_sha256 <- previous_hash
           metadata$features <- length(jsonlite::fromJSON(data_path, simplifyVector = FALSE)$features)
+          metadata$unique_canonical_features <- length(unique(
+            alboFr::get_tiger_mosquito_feature_hashes(data_path)))
           metadata$alboFr_version <- as.character(utils::packageVersion("alboFr"))
           metadata$alboFr_remote_sha <- utils::packageDescription("alboFr")$RemoteSha
           metadata$workflow_run_id <- Sys.getenv("GITHUB_RUN_ID")
           metadata$release_tag <- release_tag
 
           writeLines(toJSON(metadata, auto_unbox = TRUE, pretty = TRUE, null = "null"), "metadata.json")
+          if (changed) {
+            history_status <- system2("Rscript", c("scripts/build_feature_history.R",
+                                                   paste0("--data=", data_path),
+                                                   "--metadata=metadata.json",
+                                                   "--output=feature_history.csv",
+                                                   "--ledger=feature_history_snapshots.csv"))
+            if (!identical(history_status, 0L)) {
+              stop("build_feature_history.R failed with status ", history_status)
+            }
+          }
           snapshot <- c(
             "# Snapshot metadata",
             "",
@@ -121,7 +135,7 @@ jobs:
           cat(sprintf("data_hash=%s\n", current_hash), file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
           cat(sprintf("release_tag=%s\n", release_tag), file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
           cat("release_body<<EOF\n", file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
-          cat(release_body, "\n", file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
+          cat(release_body, "\n", sep = "", file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
           cat("EOF\n", file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
           EOF
         env:
@@ -132,7 +146,7 @@ jobs:
         uses: EndBug/add-and-commit@v9
         with:
           message: "Update tiger mosquito colonisation data for ${{ steps.date.outputs.iso_date }} (${{ steps.compare.outputs.data_hash }}) [skip ci]"
-          add: "tiger_mosquito_colonisation_in_france.geojson metadata.json SNAPSHOT.md"
+          add: "tiger_mosquito_colonisation_in_france.geojson metadata.json SNAPSHOT.md feature_history.csv feature_history_snapshots.csv"
           push: true
 
       - name: Stage files for packaging
@@ -140,7 +154,7 @@ jobs:
         run: |
           rm -rf tiger-mosquito-data
           mkdir tiger-mosquito-data
-          cp tiger_mosquito_colonisation_in_france.geojson metadata.json SNAPSHOT.md README.md .zenodo.json CITATION.cff LICENSE.md tiger-mosquito-data/
+          cp tiger_mosquito_colonisation_in_france.geojson metadata.json SNAPSHOT.md feature_history.csv feature_history_snapshots.csv README.md .zenodo.json CITATION.cff LICENSE.md tiger-mosquito-data/
 
       - name: Zip the data bundle
         if: steps.compare.outputs.changed == 'true' || inputs.dry_run == 'true'
