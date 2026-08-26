@@ -2,7 +2,7 @@ name: Update Tiger Mosquito Data
 
 on:
   schedule:
-    - cron: '0 3 * * 6'
+    - cron: '27 3 * * 6'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -56,9 +56,11 @@ jobs:
 
       - name: Fetch Data and Save as GeoJSON
         run: |
-          Rscript -e "library(alboFr);
-                      x <- get_tiger_mosquito_colonisation_in_france(output='geojson');
-                      writeLines(x, 'tiger_mosquito_colonisation_in_france.geojson')"
+          Rscript scripts/fetch_data.R \
+            --output=tiger_mosquito_colonisation_in_france.geojson \
+            --page-output=raw_source_page.html \
+            --max-retries=5 \
+            --timeout=180
 
       - name: Compare data and write metadata
         id: compare
@@ -68,6 +70,7 @@ jobs:
           library(alboFr)
 
           data_path <- "tiger_mosquito_colonisation_in_france.geojson"
+          source_page_path <- "raw_source_page.html"
           previous_path <- tempfile(fileext = ".geojson")
           git_status <- system2("git", c("show", paste0("HEAD:", data_path)), stdout = previous_path, stderr = FALSE)
           if (!identical(git_status, 0L)) {
@@ -82,16 +85,28 @@ jobs:
           }
           changed <- !identical(current_hash, previous_hash)
           release_tag <- paste0(Sys.getenv("ISO_DATE"), "-", substr(current_hash, 1, 8))
-          metadata <- alboFr::get_tiger_mosquito_colonisation_metadata()
-          metadata$data_canonical_sha256 <- current_hash
-          metadata$previous_data_canonical_sha256 <- previous_hash
-          metadata$features <- length(jsonlite::fromJSON(data_path, simplifyVector = FALSE)$features)
-          metadata$unique_canonical_features <- length(unique(
-            alboFr::get_tiger_mosquito_feature_hashes(data_path)))
-          metadata$alboFr_version <- as.character(utils::packageVersion("alboFr"))
-          metadata$alboFr_remote_sha <- utils::packageDescription("alboFr")$RemoteSha
-          metadata$workflow_run_id <- Sys.getenv("GITHUB_RUN_ID")
-          metadata$release_tag <- release_tag
+
+          source_official_update_date <- if (file.exists(source_page_path)) {
+            page_text <- paste(readLines(source_page_path, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
+            alboFr:::parse_tiger_mosquito_update_date(page_text)
+          } else {
+            alboFr::get_tiger_mosquito_colonisation_metadata()$source_official_update_date
+          }
+
+          metadata <- list(
+            source_url = "https://signalement-moustique.anses.fr/signalement_albopictus/colonisees",
+            source_official_update_date = source_official_update_date,
+            fetched_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
+            data_canonical_sha256 = current_hash,
+            previous_data_canonical_sha256 = previous_hash,
+            features = length(jsonlite::fromJSON(data_path, simplifyVector = FALSE)$features),
+            unique_canonical_features = length(unique(
+              alboFr::get_tiger_mosquito_feature_hashes(data_path))),
+            alboFr_version = as.character(utils::packageVersion("alboFr")),
+            alboFr_remote_sha = utils::packageDescription("alboFr")$RemoteSha,
+            workflow_run_id = Sys.getenv("GITHUB_RUN_ID"),
+            release_tag = release_tag
+          )
 
           writeLines(toJSON(metadata, auto_unbox = TRUE, pretty = TRUE, null = "null"), "metadata.json")
           if (changed) {
