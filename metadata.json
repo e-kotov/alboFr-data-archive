@@ -1,0 +1,13 @@
+{
+  "source_url": "https://signalement-moustique.anses.fr/signalement_albopictus/colonisees",
+  "source_official_update_date": "2026-04-29",
+  "fetched_at": "2026-08-28T13:03:04Z",
+  "data_canonical_sha256": "88f3d8e4a355dfe2648061d8c15fb8d6a24a8b314f585a38b5e939be4b469c98",
+  "previous_data_canonical_sha256": "88f3d8e4a355dfe2648061d8c15fb8d6a24a8b314f585a38b5e939be4b469c98",
+  "features": 7462,
+  "unique_canonical_features": 7462,
+  "alboFr_version": "0.0.0.9000",
+  "alboFr_remote_sha": "e3695118f0504df82b08482a82f3152f6c1d6511",
+  "workflow_run_id": "33173522126",
+  "release_tag": "2026-08-28-88f3d8e4"
+}
