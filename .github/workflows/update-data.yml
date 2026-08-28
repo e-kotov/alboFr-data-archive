@@ -13,6 +13,14 @@ on:
         options:
           - "false"
           - "true"
+      force_release:
+        description: "Force release and Zenodo deposit even if data hash has not changed"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 jobs:
   update-data:
@@ -83,7 +91,8 @@ jobs:
           } else {
             NA_character_
           }
-          changed <- !identical(current_hash, previous_hash)
+          force_release <- identical(Sys.getenv("INPUT_FORCE_RELEASE"), "true")
+          changed <- !identical(current_hash, previous_hash) || force_release
           release_tag <- paste0(Sys.getenv("ISO_DATE"), "-", substr(current_hash, 1, 8))
 
           source_official_update_date <- if (file.exists(source_page_path)) {
@@ -177,6 +186,7 @@ jobs:
           EOF
         env:
           ISO_DATE: ${{ steps.date.outputs.iso_date }}
+          INPUT_FORCE_RELEASE: ${{ inputs.force_release }}
 
       - name: Commit Updated Data Files
         if: steps.compare.outputs.changed == 'true' && inputs.dry_run != 'true'
