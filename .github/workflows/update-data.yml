@@ -47,8 +47,8 @@ jobs:
 
       - name: Install R packages
         run: |
-          Rscript -e "install.packages('pak', repos='https://packagemanager.posit.co/cran/__linux__/noble/latest')"
-          Rscript -e "options(repos='https://packagemanager.posit.co/cran/__linux__/noble/latest'); pak::pak(c('rlang','RcppSimdJson','jsonlite','digest'))"
+          Rscript -e "install.packages('pak')"
+          Rscript -e "pak::pak(c('rlang', 'RcppSimdJson', 'jsonlite', 'digest', 'curl'))"
 
       - name: Install alboFr
         run: |
@@ -119,30 +119,52 @@ jobs:
               stop("build_feature_history.R failed with status ", history_status)
             }
           }
+          official_date_str <- if (!is.null(metadata$source_official_update_date) &&
+                                   length(metadata$source_official_update_date) > 0 &&
+                                   !is.na(metadata$source_official_update_date) &&
+                                   nzchar(metadata$source_official_update_date)) {
+            as.character(metadata$source_official_update_date)
+          } else {
+            "Unavailable / unparsed"
+          }
+
           snapshot <- c(
-            "# Snapshot metadata",
+            "# Tiger Mosquito Data Snapshot Metadata",
             "",
-            sprintf("- Source URL: %s", metadata$source_url),
-            sprintf("- Fetched at: %s", metadata$fetched_at),
-            sprintf("- Official source update date: %s", metadata$source_official_update_date),
-            sprintf("- Canonical data hash: %s", metadata$data_canonical_sha256),
-            sprintf("- Previous canonical data hash: %s", metadata$previous_data_canonical_sha256),
-            sprintf("- Features: %s", metadata$features),
-            sprintf("- alboFr version: %s", metadata$alboFr_version),
-            sprintf("- alboFr GitHub SHA: %s", metadata$alboFr_remote_sha),
-            sprintf("- Workflow run ID: %s", metadata$workflow_run_id),
-            sprintf("- Release tag: %s", metadata$release_tag),
+            sprintf("Weekly automated snapshot of French tiger mosquito (*Aedes albopictus*) colonisation data from ANSES captured on **%s**.", Sys.getenv("ISO_DATE")),
             "",
-            "`source_official_update_date` is parsed from the ANSES page text and may be unavailable if the source page changes."
+            "## Summary",
+            sprintf("- **Archive Execution Date**: `%s`", Sys.getenv("ISO_DATE")),
+            sprintf("- **Fetched at (UTC)**: `%s`", metadata$fetched_at),
+            sprintf("- **Official Source Update Date**: `%s`", official_date_str),
+            sprintf("- **Active Commune Features**: `%s`", metadata$features),
+            sprintf("- **Unique Canonical Features**: `%s`", metadata$unique_canonical_features),
+            sprintf("- **Canonical Dataset SHA-256**: `%s`", metadata$data_canonical_sha256),
+            sprintf("- **Previous Dataset SHA-256**: `%s`", metadata$previous_data_canonical_sha256),
+            sprintf("- **alboFr Package Version**: `%s` (commit `%s`)", metadata$alboFr_version, metadata$alboFr_remote_sha),
+            sprintf("- **Workflow Run ID**: `%s`", metadata$workflow_run_id),
+            sprintf("- **Release Tag**: `%s`", metadata$release_tag),
+            sprintf("- **Source URL**: %s", metadata$source_url),
+            "",
+            "> Upstream data is published periodically by ANSES. This repository checks for updates weekly and creates a new release and Zenodo deposit whenever a change in the canonical dataset is detected."
           )
           writeLines(snapshot, "SNAPSHOT.md")
+
           release_body <- paste(
-            "Updated tiger mosquito colonisation in France data.",
+            sprintf("### Tiger Mosquito Colonisation in France — Snapshot %s", metadata$release_tag),
             "",
-            sprintf("- Fetched at: %s", metadata$fetched_at),
-            sprintf("- Official source update date: %s", metadata$source_official_update_date),
-            sprintf("- Canonical data hash: %s", metadata$data_canonical_sha256),
-            sprintf("- Features: %s", metadata$features),
+            sprintf("Snapshot of official ANSES tiger mosquito (*Aedes albopictus*) colonisation data for France (official source update date: **%s**), captured during the weekly automated archive run on **%s**.", official_date_str, Sys.getenv("ISO_DATE")),
+            "",
+            "#### Snapshot Details",
+            sprintf("- **Archive Execution Date**: `%s`", Sys.getenv("ISO_DATE")),
+            sprintf("- **Fetched at (UTC)**: `%s`", metadata$fetched_at),
+            sprintf("- **Official Source Update Date**: `%s`", official_date_str),
+            sprintf("- **Active Commune Polygons**: `%s`", metadata$features),
+            sprintf("- **Canonical Dataset SHA-256**: `%s`", metadata$data_canonical_sha256),
+            sprintf("- **Previous Dataset SHA-256**: `%s`", metadata$previous_data_canonical_sha256),
+            sprintf("- **alboFr Version**: `%s` (commit `%s`)", metadata$alboFr_version, metadata$alboFr_remote_sha),
+            "",
+            "> Upstream data is published periodically by [ANSES](https://signalement-moustique.anses.fr/signalement_albopictus/colonisees). This archive repository checks for updates every week and automatically creates a new release and Zenodo deposit whenever a change in the canonical feature dataset is detected.",
             sep = "\n"
           )
 
@@ -160,7 +182,7 @@ jobs:
         if: steps.compare.outputs.changed == 'true' && inputs.dry_run != 'true'
         uses: EndBug/add-and-commit@v9
         with:
-          message: "Update tiger mosquito colonisation data for ${{ steps.date.outputs.iso_date }} (${{ steps.compare.outputs.data_hash }}) [skip ci]"
+          message: "Archive tiger mosquito colonisation data for ${{ steps.date.outputs.iso_date }} (${{ steps.compare.outputs.data_hash }}) [skip ci]"
           add: "tiger_mosquito_colonisation_in_france.geojson metadata.json SNAPSHOT.md feature_history.csv feature_history_snapshots.csv"
           push: true
 
@@ -169,14 +191,13 @@ jobs:
         run: |
           rm -rf tiger-mosquito-data
           mkdir tiger-mosquito-data
-          cp tiger_mosquito_colonisation_in_france.geojson metadata.json SNAPSHOT.md feature_history.csv feature_history_snapshots.csv README.md .zenodo.json CITATION.cff LICENSE.md tiger-mosquito-data/
+          cp -r tiger_mosquito_colonisation_in_france.geojson metadata.json SNAPSHOT.md feature_history.csv feature_history_snapshots.csv README.md .zenodo.json CITATION.cff LICENSE.md examples tiger-mosquito-data/
 
       - name: Zip the data bundle
         if: steps.compare.outputs.changed == 'true' || inputs.dry_run == 'true'
         run: |
           zip -r "${{ steps.compare.outputs.release_tag }}-tiger-mosquito-data.zip" \
-              tiger-mosquito-data \
-              -x "tiger-mosquito-data/.github/*"
+              tiger-mosquito-data
 
       - name: Upload dry-run artifact
         if: inputs.dry_run == 'true'
@@ -194,9 +215,15 @@ jobs:
           allowUpdates: true
           replacesArtifacts: true
           tag: ${{ steps.compare.outputs.release_tag }}
-          name: "Release ${{ steps.compare.outputs.release_tag }}"
+          name: "Snapshot ${{ steps.compare.outputs.release_tag }}"
           body: ${{ steps.compare.outputs.release_body }}
           draft: false
           prerelease: false
           artifacts: |
             ${{ steps.compare.outputs.release_tag }}-tiger-mosquito-data.zip
+            tiger_mosquito_colonisation_in_france.geojson
+            feature_history.csv
+            feature_history_snapshots.csv
+            metadata.json
+            SNAPSHOT.md
+            README.md

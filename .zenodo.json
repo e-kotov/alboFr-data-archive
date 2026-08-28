@@ -1,7 +1,7 @@
 {
   "title": "Archive of tiger mosquito colonisation data in France",
   "upload_type": "dataset",
-  "description": "Automatic archive of GeoJSON snapshots of tiger mosquito (Aedes albopictus) colonisation data displayed by the ANSES online map for France. Each release contains a dated snapshot; per-snapshot metadata is stored in metadata.json inside the release archive.",
+  "description": "<p>Automatic, weekly versioned archive of French tiger mosquito (<em>Aedes albopictus</em>) colonisation data displayed on the official ANSES online map for France (<a href=\"https://signalement-moustique.anses.fr/signalement_albopictus/colonisees\">https://signalement-moustique.anses.fr/signalement_albopictus/colonisees</a>).</p><h3>Included Data Files</h3><ul><li><strong>tiger_mosquito_colonisation_in_france.geojson</strong>: The latest active spatial GeoJSON snapshot (EPSG:4326 / WGS84) containing active colonised commune polygons ready for GIS use in QGIS, ArcGIS, R, and Python.</li><li><strong>feature_history.csv</strong>: Longitudinal registry tracking the complete lifecycle of every canonical commune polygon ever observed in the archive (including bounding boxes, vertex counts, active status, first/last seen dates, and foreign keys).</li><li><strong>feature_history_snapshots.csv</strong>: Archive audit ledger recording every historical execution, snapshot date, Git commit SHA, release tag, and canonical dataset SHA-256 hash.</li><li><strong>metadata.json / SNAPSHOT.md</strong>: Machine-readable and human-readable per-snapshot metadata (fetch timestamps, package versions, SHA-256 digests).</li><li><strong>examples/</strong>: Ready-to-run R and Python code examples demonstrating how to join the history table with the ledger.</li></ul><h3>Relational Connections &amp; Methodology</h3><p>The files connect relationally: <code>feature_history.csv</code> links to <code>feature_history_snapshots.csv</code> on <code>snapshot_id</code> (using foreign keys <code>first_seen_snapshot_id</code> and <code>last_seen_snapshot_id</code>) to recover the exact Git commit, release tag, and official update date of any polygon. Polygons are extracted and validated using the <a href=\"https://github.com/e-kotov/alboFr\">alboFr</a> R package with 15-digit coordinate precision and radix property sorting for deterministic canonical hashing.</p>",
   "creators": [
     {
       "name": "Kotov, Egor",
@@ -13,7 +13,10 @@
     "tiger mosquito",
     "France",
     "GeoJSON",
-    "data archive"
+    "data archive",
+    "epidemiology",
+    "vector-borne disease",
+    "spatial data"
   ],
   "related_identifiers": [
     {
@@ -29,5 +32,5 @@
   ],
   "access_right": "open",
   "license": "cc-by-4.0",
-  "notes": "The archive metadata and packaging are provided under CC BY 4.0. The original upstream ANSES data does not have a clearly defined license; users should consult the source legal notice before reuse."
+  "notes": "The archive metadata, compilation, and history tracking code are provided under CC BY 4.0. The original upstream spatial data is published by ANSES (Agence nationale de sécurité sanitaire de l'alimentation, de l'environnement et du travail); consult the source legal notice before reuse."
 }
