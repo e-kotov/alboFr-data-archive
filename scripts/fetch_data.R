@@ -57,9 +57,12 @@ fetch_source_page <- function(url, max_retries, timeout_sec, initial_delay, back
     
     res <- tryCatch({
       con <- url(url, headers = c("User-Agent" = user_agent))
-      on.exit(close(con), add = TRUE)
-      lines <- readLines(con, warn = FALSE, encoding = "UTF-8")
-      paste(lines, collapse = "\n")
+      tryCatch({
+        lines <- readLines(con, warn = FALSE, encoding = "UTF-8")
+        paste(lines, collapse = "\n")
+      }, finally = {
+        try(close(con), silent = TRUE)
+      })
     }, error = function(e) {
       e
     })
