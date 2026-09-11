@@ -40,7 +40,7 @@ jobs:
         id: date
         run: |
           iso_date=$(date -I)
-          echo "iso_date=$iso_date" >> $GITHUB_OUTPUT
+          echo "iso_date=$iso_date" >> "$GITHUB_OUTPUT"
 
       - name: Install System Dependencies
         run: |
@@ -63,12 +63,37 @@ jobs:
           Rscript -e 'pak::pak("e-kotov/alboFr")'
 
       - name: Fetch Data and Save as GeoJSON
+        id: fetch
         run: |
+          set -o pipefail
           Rscript scripts/fetch_data.R \
             --output=tiger_mosquito_colonisation_in_france.geojson \
             --page-output=raw_source_page.html \
             --max-retries=5 \
-            --timeout=180
+            --timeout=180 2>&1 | tee fetch-data.log
+
+      - name: Report failed fetch
+        if: failure() && steps.fetch.conclusion == 'failure'
+        run: |
+          {
+            echo "## Weekly data update failed"
+            echo
+            echo "The fetch step exhausted its retries. No commit, release, or Zenodo deposit was made."
+            echo
+            echo "Source: https://signalement-moustique.anses.fr/signalement_albopictus/colonisees"
+            echo
+            echo "### Final fetch output"
+            echo '```text'
+            if [ -s fetch-data.log ]; then
+              tail -n 20 fetch-data.log
+            else
+              echo "No fetch log was created; the step may have failed before R started."
+            fi
+            echo '```'
+            echo
+            echo "Re-run the workflow once the upstream source is reachable."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error title=Tiger mosquito data fetch failed::The fetch step exhausted its retries. See the job summary for the final error."
 
       - name: Compare data and write metadata
         id: compare
