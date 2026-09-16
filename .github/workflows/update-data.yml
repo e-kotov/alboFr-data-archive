@@ -118,7 +118,7 @@ jobs:
           }
           force_release <- identical(Sys.getenv("INPUT_FORCE_RELEASE"), "true")
           changed <- !identical(current_hash, previous_hash) || force_release
-          release_tag <- paste0(Sys.getenv("ISO_DATE"), "-", substr(current_hash, 1, 8))
+          release_tag <- Sys.getenv("ISO_DATE")
 
           source_official_update_date <- if (file.exists(source_page_path)) {
             page_text <- paste(readLines(source_page_path, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
